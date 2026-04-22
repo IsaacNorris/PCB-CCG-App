@@ -66,6 +66,9 @@ function generateMonochromeLayers() {
     tempCanvas.height,
   );
 
+  // Convert transparent pixels to black
+  imageData = convertTransparentToBlack(imageData);
+
   // Apply noise reduction if enabled
   if (noiseReductionStrength > 0) {
     imageData = applyNoiseReduction(imageData, noiseReductionStrength);
@@ -171,6 +174,25 @@ function generateMonochromeLayers() {
 
   layersSection.style.display = "block";
   controlsSection.style.display = "block";
+}
+
+// Convert transparent pixels to black
+function convertTransparentToBlack(imageData) {
+  const data = imageData.data;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const alpha = data[i + 3];
+
+    // If pixel is transparent or semi-transparent, set it to black
+    if (alpha < 255) {
+      data[i] = 0; // R
+      data[i + 1] = 0; // G
+      data[i + 2] = 0; // B
+      data[i + 3] = 255; // A (full opacity)
+    }
+  }
+
+  return imageData;
 }
 
 // Create a monochrome layer for a specific brightness range
