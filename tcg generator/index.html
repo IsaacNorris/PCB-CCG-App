@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TCG Card Generator</title>
-    <link rel="stylesheet" href="styles.css">`n    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 </head>
 <body>
@@ -22,12 +22,18 @@
                     <input type="number" id="card-health" placeholder="Enter health value">
                 </div>
                 <div class="form-group">
-                    <label for="card-abilities">Abilities/Skills:</label>
-                    <textarea id="card-abilities" placeholder="Enter abilities and skills"></textarea>
+                    <label>Abilities/Skills:</label>
+                    <div id="abilities-input-list">
+                        <div class="ability-row">
+                            <input type="text" class="ability-label-input" placeholder="Ability label">
+                            <input type="text" class="ability-description-input" placeholder="Ability description">
+                        </div>
+                    </div>
+                    <button type="button" id="add-ability-btn">Add Ability</button>
                 </div>
-                <div class="form-group">
-                    <label for="card-description">Description:</label>
-                    <textarea id="card-description" placeholder="Enter card description"></textarea>
+                <div class="form-group small-desc-inputs">
+                    <input type="text" id="card-description-small-1" placeholder="Extra description 1">
+                    <input type="text" id="card-description-small-2" placeholder="Extra description 2">
                 </div>
                 <div class="form-group">
                     <label for="card-image">Upload Image:</label>
@@ -35,12 +41,13 @@
                 </div>
             </div>
             <div class="preview-section">
-                <h2>Card Preview</h2>`n                <button id="download-btn">Download Card as PNG</button>
+                <h2>Card Preview</h2>
+                <button id="download-btn">Download Card as PNG</button>
                 <div class="card-preview">
                     <div class="card-header">
                         <h3 id="preview-name">Card Name</h3>
                         <div class="card-stats">
-                            <span id="preview-health">Health: 0</span>
+                            <span id="preview-health">0HP</span>
                         </div>
                     </div>
                     <div class="card-image">
@@ -49,28 +56,13 @@
                     </div>
                     <div class="card-content">
                         <div class="card-abilities">
-                            <h4>Abilities</h4>
-                            <p id="preview-abilities">No abilities set</p>
+                            <ul id="preview-abilities-list">
+                                <li>No abilities set</li>
+                            </ul>
                         </div>
-                        <div class="card-description">
-                            <h4>Description</h4>
-                            <p id="preview-description">No description set</p>
-                        </div>
-                    </div>
-                </div>
-                    </div>
-                    <div class="card-content">
-                        <h3 id="preview-name">Card Name</h3>
-                        <div class="card-stats">
-                            <span id="preview-health">Health: 0</span>
-                        </div>
-                        <div class="card-abilities">
-                            <h4>Abilities</h4>
-                            <p id="preview-abilities">No abilities set</p>
-                        </div>
-                        <div class="card-description">
-                            <h4>Description</h4>
-                            <p id="preview-description">No description set</p>
+                        <div class="card-mini-descriptions">
+                            <p id="preview-description-small-1"></p>
+                            <p id="preview-description-small-2"></p>
                         </div>
                     </div>
                 </div>
@@ -80,6 +72,3 @@
     <script src="main.js"></script>
 </body>
 </html>
-
-
-
