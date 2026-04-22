@@ -7,17 +7,22 @@ const layersContainer = document.getElementById("layersContainer");
 const controlsSection = document.getElementById("controlsSection");
 const downloadBtn = document.getElementById("downloadBtn");
 const resetBtn = document.getElementById("resetBtn");
-const noiseFilterBtn = document.getElementById("noiseFilterBtn");
+const noiseButtons = document.querySelectorAll(".noise-btn");
+const cumulativeLayersBtn = document.getElementById("cumulativeLayersBtn");
 
 let originalImage = null;
 let layerCanvases = [];
-let noiseReductionEnabled = false;
+let noiseReductionStrength = 0;
+let cumulativeLayersEnabled = false;
 
 // Event listeners
 imageInput.addEventListener("change", handleImageUpload);
 downloadBtn.addEventListener("click", downloadAllLayers);
 resetBtn.addEventListener("click", resetApp);
-noiseFilterBtn.addEventListener("click", toggleNoiseReduction);
+noiseButtons.forEach((btn) => {
+  btn.addEventListener("click", setNoiseReduction);
+});
+cumulativeLayersBtn.addEventListener("click", toggleCumulativeLayers);
 
 // Handle image upload
 function handleImageUpload(e) {
@@ -62,53 +67,86 @@ function generateMonochromeLayers() {
   );
 
   // Apply noise reduction if enabled
-  if (noiseReductionEnabled) {
-    imageData = applyNoiseReduction(imageData);
+  if (noiseReductionStrength > 0) {
+    imageData = applyNoiseReduction(imageData, noiseReductionStrength);
   }
 
   const data = imageData.data;
 
   // Define 5 layers with different brightness thresholds
-  const layers = [
-    {
-      name: "Layer 1 (0-20%)",
-      min: 0,
-      max: 51,
-      description: "Darkest areas",
-    },
-    {
-      name: "Layer 2 (20-40%)",
-      min: 51,
-      max: 102,
-      description: "Dark areas",
-    },
-    {
-      name: "Layer 3 (40-60%)",
-      min: 102,
-      max: 153,
-      description: "Mid tones",
-    },
-    {
-      name: "Layer 4 (60-80%)",
-      min: 153,
-      max: 204,
-      description: "Light areas",
-    },
-    {
-      name: "Layer 5 (80-100%)",
-      min: 204,
-      max: 255,
-      description: "Brightest areas",
-    },
-  ];
+  let layers;
+  if (cumulativeLayersEnabled) {
+    // Cumulative mode: each layer includes all pixels at or below its threshold
+    layers = [
+      {
+        name: "Layer 1 (≤20%)",
+        threshold: 51,
+        description: "All pixels ≤20% brightness",
+      },
+      {
+        name: "Layer 2 (≤40%)",
+        threshold: 102,
+        description: "All pixels ≤40% brightness",
+      },
+      {
+        name: "Layer 3 (≤60%)",
+        threshold: 153,
+        description: "All pixels ≤60% brightness",
+      },
+      {
+        name: "Layer 4 (≤80%)",
+        threshold: 204,
+        description: "All pixels ≤80% brightness",
+      },
+      {
+        name: "Layer 5 (≤100%)",
+        threshold: 255,
+        description: "All pixels (full image)",
+      },
+    ];
+  } else {
+    // Exclusive mode: each layer has a specific brightness range
+    layers = [
+      {
+        name: "Layer 1 (0-20%)",
+        min: 0,
+        max: 51,
+        description: "Darkest areas",
+      },
+      {
+        name: "Layer 2 (20-40%)",
+        min: 51,
+        max: 102,
+        description: "Dark areas",
+      },
+      {
+        name: "Layer 3 (40-60%)",
+        min: 102,
+        max: 153,
+        description: "Mid tones",
+      },
+      {
+        name: "Layer 4 (60-90%)",
+        min: 153,
+        max: 230,
+        description: "Light areas",
+      },
+      {
+        name: "Layer 5 (90-100%)",
+        min: 230,
+        max: 255,
+        description: "Brightest areas",
+      },
+    ];
+  }
 
   layers.forEach((layer, index) => {
     const canvas = createMonochromeLayer(
       originalImage.width,
       originalImage.height,
       data,
-      layer.min,
-      layer.max,
+      layer,
+      cumulativeLayersEnabled,
     );
     layerCanvases.push({ canvas, name: layer.name });
 
@@ -136,13 +174,7 @@ function generateMonochromeLayers() {
 }
 
 // Create a monochrome layer for a specific brightness range
-function createMonochromeLayer(
-  width,
-  height,
-  imageData,
-  minBrightness,
-  maxBrightness,
-) {
+function createMonochromeLayer(width, height, imageData, layer, isCumulative) {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -161,8 +193,18 @@ function createMonochromeLayer(
     // Calculate brightness (grayscale value)
     const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
 
+    let shouldInclude = false;
+
+    if (isCumulative) {
+      // Cumulative mode: include pixels at or below the threshold
+      shouldInclude = brightness <= layer.threshold;
+    } else {
+      // Exclusive mode: include pixels within the range
+      shouldInclude = brightness >= layer.min && brightness <= layer.max;
+    }
+
     // Check if this pixel is in the range for this layer
-    if (brightness >= minBrightness && brightness <= maxBrightness) {
+    if (shouldInclude) {
       // Set to white for pixels in range
       layerData[i] = 255;
       layerData[i + 1] = 255;
@@ -203,20 +245,23 @@ function downloadAllLayers() {
     }, index * 200);
   });
 }
-function applyNoiseReduction(imageData) {
+function applyNoiseReduction(imageData, strength = 1) {
   const width = imageData.width;
   const height = imageData.height;
   const data = imageData.data;
   const output = new Uint8ClampedArray(data.length);
 
-  // 3x3 median filter
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
+  // Kernel size based on strength: 3, 5, 7, 9, 11 for strength 1-5
+  const kernelSize = 2 * strength + 1;
+  const halfKernel = Math.floor(kernelSize / 2);
+
+  for (let y = halfKernel; y < height - halfKernel; y++) {
+    for (let x = halfKernel; x < width - halfKernel; x++) {
       const neighbors = [];
 
-      // Collect 3x3 neighborhood for each color channel
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
+      // Collect neighborhood for each color channel
+      for (let dy = -halfKernel; dy <= halfKernel; dy++) {
+        for (let dx = -halfKernel; dx <= halfKernel; dx++) {
           const idx = ((y + dy) * width + (x + dx)) * 4;
           neighbors.push(data[idx]); // R
           neighbors.push(data[idx + 1]); // G
@@ -248,7 +293,12 @@ function applyNoiseReduction(imageData) {
   // Copy edges unchanged
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
+      if (
+        y < halfKernel ||
+        y >= height - halfKernel ||
+        x < halfKernel ||
+        x >= width - halfKernel
+      ) {
         const idx = (y * width + x) * 4;
         output[idx] = data[idx];
         output[idx + 1] = data[idx + 1];
@@ -261,13 +311,33 @@ function applyNoiseReduction(imageData) {
   return new ImageData(output, width, height);
 }
 
-// Toggle noise reduction filter
-function toggleNoiseReduction() {
-  noiseReductionEnabled = !noiseReductionEnabled;
-  noiseFilterBtn.textContent = `Noise Reduction: ${noiseReductionEnabled ? "ON" : "OFF"}`;
-  noiseFilterBtn.classList.toggle("active", noiseReductionEnabled);
+// Update noise reduction strength
+// Set noise reduction level
+function setNoiseReduction(e) {
+  const level = parseInt(e.target.dataset.level);
+  noiseReductionStrength = level;
+
+  // Update button active states
+  noiseButtons.forEach((btn) => {
+    btn.classList.remove("active");
+    if (parseInt(btn.dataset.level) === level) {
+      btn.classList.add("active");
+    }
+  });
 
   // Regenerate layers with new filter setting
+  if (originalImage) {
+    generateMonochromeLayers();
+  }
+}
+
+// Toggle cumulative layers mode
+function toggleCumulativeLayers() {
+  cumulativeLayersEnabled = !cumulativeLayersEnabled;
+  cumulativeLayersBtn.textContent = `Cumulative Layers: ${cumulativeLayersEnabled ? "ON" : "OFF"}`;
+  cumulativeLayersBtn.classList.toggle("active", cumulativeLayersEnabled);
+
+  // Regenerate layers with new mode
   if (originalImage) {
     generateMonochromeLayers();
   }
@@ -283,7 +353,22 @@ function resetApp() {
   layersContainer.innerHTML = "";
   layerCanvases = [];
   originalImage = null;
-  noiseReductionEnabled = false;
-  noiseFilterBtn.textContent = "Noise Reduction: OFF";
-  noiseFilterBtn.classList.remove("active");
+  noiseReductionStrength = 0;
+
+  // Reset noise reduction buttons
+  noiseButtons.forEach((btn) => {
+    btn.classList.remove("active");
+    if (parseInt(btn.dataset.level) === 0) {
+      btn.classList.add("active");
+    }
+  });
+
+  cumulativeLayersEnabled = false;
+  cumulativeLayersBtn.textContent = "Cumulative Layers: OFF";
+  cumulativeLayersBtn.classList.remove("active");
+}
+
+// Initialize first noise button as active
+if (noiseButtons.length > 0) {
+  noiseButtons[0].classList.add("active");
 }

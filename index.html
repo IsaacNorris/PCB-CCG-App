@@ -32,8 +32,19 @@
         <h2>Monochrome Layers</h2>
         <p class="layers-info">5 layers based on brightness levels</p>
         <div class="filter-controls">
-          <button id="noiseFilterBtn" class="filter-btn">
-            Noise Reduction: OFF
+          <div class="filter-group">
+            <label class="filter-label">Noise Reduction:</label>
+            <div class="noise-buttons">
+              <button class="noise-btn" data-level="0">0</button>
+              <button class="noise-btn" data-level="1">1</button>
+              <button class="noise-btn" data-level="2">2</button>
+              <button class="noise-btn" data-level="3">3</button>
+              <button class="noise-btn" data-level="4">4</button>
+              <button class="noise-btn" data-level="5">5</button>
+            </div>
+          </div>
+          <button id="cumulativeLayersBtn" class="filter-btn">
+            Cumulative Layers: OFF
           </button>
         </div>
         <div class="layers-container" id="layersContainer"></div>
