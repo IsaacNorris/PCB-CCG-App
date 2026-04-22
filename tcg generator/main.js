@@ -120,11 +120,21 @@ const downloadBtn = document.getElementById("download-btn");
 downloadBtn.addEventListener("click", function () {
   const cardElement = document.querySelector(".card-preview");
   const exportScale = Math.min(window.devicePixelRatio * 4, 8);
+  const computedCardStyle = window.getComputedStyle(cardElement);
+  const borderRadiusPx = parseFloat(computedCardStyle.borderTopLeftRadius) || 0;
+  const scaledRadius = borderRadiusPx * exportScale;
 
   html2canvas(cardElement, {
-    backgroundColor: "#ffffff",
+    backgroundColor: null,
     scale: exportScale,
     useCORS: true,
+    onclone: (clonedDocument) => {
+      const clonedCard = clonedDocument.querySelector(".card-preview");
+      if (clonedCard) {
+        // Avoid shadow pixels leaking into transparent export corners.
+        clonedCard.style.boxShadow = "none";
+      }
+    },
   })
     .then(function (canvas) {
       const context = canvas.getContext("2d");
@@ -144,10 +154,44 @@ downloadBtn.addEventListener("click", function () {
 
       context.putImageData(imageData, 0, 0);
 
+      const outputCanvas = document.createElement("canvas");
+      outputCanvas.width = canvas.width;
+      outputCanvas.height = canvas.height;
+      const outputContext = outputCanvas.getContext("2d");
+
+      outputContext.beginPath();
+      outputContext.moveTo(scaledRadius, 0);
+      outputContext.lineTo(outputCanvas.width - scaledRadius, 0);
+      outputContext.quadraticCurveTo(
+        outputCanvas.width,
+        0,
+        outputCanvas.width,
+        scaledRadius
+      );
+      outputContext.lineTo(outputCanvas.width, outputCanvas.height - scaledRadius);
+      outputContext.quadraticCurveTo(
+        outputCanvas.width,
+        outputCanvas.height,
+        outputCanvas.width - scaledRadius,
+        outputCanvas.height
+      );
+      outputContext.lineTo(scaledRadius, outputCanvas.height);
+      outputContext.quadraticCurveTo(
+        0,
+        outputCanvas.height,
+        0,
+        outputCanvas.height - scaledRadius
+      );
+      outputContext.lineTo(0, scaledRadius);
+      outputContext.quadraticCurveTo(0, 0, scaledRadius, 0);
+      outputContext.closePath();
+      outputContext.clip();
+      outputContext.drawImage(canvas, 0, 0);
+
       // Create download link
       const link = document.createElement("a");
       link.download = "tcg-card.png";
-      link.href = canvas.toDataURL("image/png");
+      link.href = outputCanvas.toDataURL("image/png");
       link.click();
     })
     .catch(function (error) {
