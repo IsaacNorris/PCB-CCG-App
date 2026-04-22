@@ -10,52 +10,71 @@
     <div class="container">
       <header>
         <h1>🖼️ Image to Monochrome Layers</h1>
-        <p>Convert an image into 5 grayscale layers</p>
+        <p>Use both tools in one workspace</p>
       </header>
 
-      <div class="upload-section">
-        <input
-          type="file"
-          id="imageInput"
-          accept="image/*"
-          class="file-input"
-        />
-        <label for="imageInput" class="file-label">Choose Image</label>
-      </div>
-
-      <div class="preview-section" id="previewSection" style="display: none">
-        <h2>Original Image</h2>
-        <img id="previewImage" alt="Preview" class="preview-image" />
-      </div>
-
-      <div class="layers-section" id="layersSection" style="display: none">
-        <h2>Monochrome Layers</h2>
-        <p class="layers-info">5 layers based on brightness levels</p>
-        <div class="filter-controls">
-          <div class="filter-group">
-            <label class="filter-label">Noise Reduction:</label>
-            <div class="noise-buttons">
-              <button class="noise-btn" data-level="0">0</button>
-              <button class="noise-btn" data-level="1">1</button>
-              <button class="noise-btn" data-level="2">2</button>
-              <button class="noise-btn" data-level="3">3</button>
-              <button class="noise-btn" data-level="4">4</button>
-              <button class="noise-btn" data-level="5">5</button>
-            </div>
-          </div>
-          <button id="cumulativeLayersBtn" class="filter-btn">
-            Cumulative Layers: OFF
-          </button>
-        </div>
-        <div class="layers-container" id="layersContainer"></div>
-      </div>
-
-      <div class="controls" id="controlsSection" style="display: none">
-        <button id="downloadBtn" class="download-btn">
-          Download All Layers
+      <div class="tool-switcher">
+        <button type="button" id="layersToolBtn" class="tool-btn active">
+          Monochrome Layers Tool
         </button>
-        <button id="resetBtn" class="reset-btn">Reset</button>
+        <button type="button" id="tcgToolBtn" class="tool-btn">
+          TCG Card Generator
+        </button>
       </div>
+
+      <section id="layersToolSection">
+        <div class="upload-section">
+          <input
+            type="file"
+            id="imageInput"
+            accept="image/*"
+            class="file-input"
+          />
+          <label for="imageInput" class="file-label">Choose Image</label>
+        </div>
+
+        <div class="preview-section" id="previewSection" style="display: none">
+          <h2>Original Image</h2>
+          <img id="previewImage" alt="Preview" class="preview-image" />
+        </div>
+
+        <div class="layers-section" id="layersSection" style="display: none">
+          <h2>Monochrome Layers</h2>
+          <p class="layers-info">5 layers based on brightness levels</p>
+          <div class="filter-controls">
+            <div class="filter-group">
+              <label class="filter-label">Noise Reduction:</label>
+              <div class="noise-buttons">
+                <button class="noise-btn" data-level="0">0</button>
+                <button class="noise-btn" data-level="1">1</button>
+                <button class="noise-btn" data-level="2">2</button>
+                <button class="noise-btn" data-level="3">3</button>
+                <button class="noise-btn" data-level="4">4</button>
+                <button class="noise-btn" data-level="5">5</button>
+              </div>
+            </div>
+            <button id="cumulativeLayersBtn" class="filter-btn">
+              Cumulative Layers: OFF
+            </button>
+          </div>
+          <div class="layers-container" id="layersContainer"></div>
+        </div>
+
+        <div class="controls" id="controlsSection" style="display: none">
+          <button id="downloadBtn" class="download-btn">
+            Download All Layers
+          </button>
+          <button id="resetBtn" class="reset-btn">Reset</button>
+        </div>
+      </section>
+
+      <section id="tcgToolSection" class="embedded-tool" style="display: none">
+        <iframe
+          title="TCG Card Generator"
+          src="./tcg generator/index.html"
+          class="tool-frame"
+        ></iframe>
+      </section>
     </div>
 
     <script src="main.js"></script>

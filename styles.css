@@ -39,6 +39,46 @@ header p {
   font-size: 1.1em;
 }
 
+.tool-switcher {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.tool-btn {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  background: #f2f2f2;
+  color: #333;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.tool-btn:hover {
+  background: #e6e6e6;
+}
+
+.tool-btn.active {
+  background: #667eea;
+  border-color: #667eea;
+  color: white;
+}
+
+.embedded-tool {
+  width: 100%;
+}
+
+.tool-frame {
+  width: 100%;
+  min-height: 950px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+}
+
 .upload-section {
   position: relative;
   margin-bottom: 30px;
@@ -286,6 +326,10 @@ header p {
   }
 
   .controls {
+    flex-direction: column;
+  }
+
+  .tool-switcher {
     flex-direction: column;
   }
 }

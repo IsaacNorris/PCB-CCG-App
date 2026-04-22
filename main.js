@@ -9,6 +9,10 @@ const downloadBtn = document.getElementById("downloadBtn");
 const resetBtn = document.getElementById("resetBtn");
 const noiseButtons = document.querySelectorAll(".noise-btn");
 const cumulativeLayersBtn = document.getElementById("cumulativeLayersBtn");
+const layersToolBtn = document.getElementById("layersToolBtn");
+const tcgToolBtn = document.getElementById("tcgToolBtn");
+const layersToolSection = document.getElementById("layersToolSection");
+const tcgToolSection = document.getElementById("tcgToolSection");
 
 let originalImage = null;
 let layerCanvases = [];
@@ -23,6 +27,16 @@ noiseButtons.forEach((btn) => {
   btn.addEventListener("click", setNoiseReduction);
 });
 cumulativeLayersBtn.addEventListener("click", toggleCumulativeLayers);
+layersToolBtn.addEventListener("click", () => setActiveTool("layers"));
+tcgToolBtn.addEventListener("click", () => setActiveTool("tcg"));
+
+function setActiveTool(tool) {
+  const showLayers = tool === "layers";
+  layersToolSection.style.display = showLayers ? "block" : "none";
+  tcgToolSection.style.display = showLayers ? "none" : "block";
+  layersToolBtn.classList.toggle("active", showLayers);
+  tcgToolBtn.classList.toggle("active", !showLayers);
+}
 
 // Handle image upload
 function handleImageUpload(e) {
