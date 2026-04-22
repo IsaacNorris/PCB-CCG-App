@@ -119,13 +119,31 @@ const downloadBtn = document.getElementById("download-btn");
 
 downloadBtn.addEventListener("click", function () {
   const cardElement = document.querySelector(".card-preview");
+  const exportScale = Math.min(window.devicePixelRatio * 4, 8);
 
   html2canvas(cardElement, {
-    backgroundColor: null,
-    scale: 2, // Higher resolution
+    backgroundColor: "#ffffff",
+    scale: exportScale,
     useCORS: true,
   })
     .then(function (canvas) {
+      const context = canvas.getContext("2d");
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const pixelData = imageData.data;
+
+      for (let i = 0; i < pixelData.length; i += 4) {
+        // Perceptual luminance for robust grayscale export.
+        const grayscaleValue =
+          0.2126 * pixelData[i] +
+          0.7152 * pixelData[i + 1] +
+          0.0722 * pixelData[i + 2];
+        pixelData[i] = grayscaleValue;
+        pixelData[i + 1] = grayscaleValue;
+        pixelData[i + 2] = grayscaleValue;
+      }
+
+      context.putImageData(imageData, 0, 0);
+
       // Create download link
       const link = document.createElement("a");
       link.download = "tcg-card.png";
