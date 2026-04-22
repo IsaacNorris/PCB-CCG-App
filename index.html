@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image to Monochrome Layers</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🖼️ Image to Monochrome Layers</h1>
+        <p>Convert an image into 5 grayscale layers</p>
+      </header>
+
+      <div class="upload-section">
+        <input
+          type="file"
+          id="imageInput"
+          accept="image/*"
+          class="file-input"
+        />
+        <label for="imageInput" class="file-label">Choose Image</label>
+      </div>
+
+      <div class="preview-section" id="previewSection" style="display: none">
+        <h2>Original Image</h2>
+        <img id="previewImage" alt="Preview" class="preview-image" />
+      </div>
+
+      <div class="layers-section" id="layersSection" style="display: none">
+        <h2>Monochrome Layers</h2>
+        <p class="layers-info">5 layers based on brightness levels</p>
+        <div class="filter-controls">
+          <button id="noiseFilterBtn" class="filter-btn">
+            Noise Reduction: OFF
+          </button>
+        </div>
+        <div class="layers-container" id="layersContainer"></div>
+      </div>
+
+      <div class="controls" id="controlsSection" style="display: none">
+        <button id="downloadBtn" class="download-btn">
+          Download All Layers
+        </button>
+        <button id="resetBtn" class="reset-btn">Reset</button>
+      </div>
+    </div>
+
+    <script src="main.js"></script>
+  </body>
+</html>
