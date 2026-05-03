@@ -1,8 +1,9 @@
 /**
  * PCB fabrication preview: artwork is reduced to four luminance bands that map
  * to physical layers (bright → dark): silkscreen, exposed copper, bare
- * soldermask, soldermask over copper. Smoothed luminance + mild histogram stretch
- * (no error-diffusion dither) reduce speckle while keeping separation readable.
+ * soldermask, soldermask over copper. Processing uses full resolution (capped for
+ * memory), then a high-quality downscale for the on-card preview; layer bands sample
+ * the full-res result for clean edges.
  */
 
 // RGB for each band (ordered brightest → darkest). Tune to match your fab colors.
@@ -20,13 +21,20 @@ function pcbLayerLuminance(rgb) {
 
 const PCB_LAYER_L_TARGETS = PCB_LAYER_RGB.map(pcbLayerLuminance);
 
-const BG_LUM_THRESHOLD = 246;
-const BG_CHROMA_MAX = 20;
+/** Full-resolution quantized artwork for layer band sampling (same pixel grid as process canvas). */
+let pcbProcessedImageData = null;
 
-/** Foreground mask at processed bitmap size (aligned with preview PNG cover mapping). */
-let pcbArtForegroundMask = null;
-let pcbArtMaskW = 0;
-let pcbArtMaskH = 0;
+/** Process filters at up to this longest edge (memory cap); use full native size below this. */
+const PCB_PROCESS_MAX_SIDE = 8192;
+
+/** Downscale processed bitmap for on-card preview (supersampling → fewer artifacts than tiny-process-upscale). */
+const PCB_PREVIEW_MAX_SIDE = 2800;
+
+/** Blend toward box-blurred luminance (lower = sharper, more faithful to source at high res). */
+const LUM_BLUR_MIX = 0.28;
+
+/** Blend histogram-equalized curve vs smoothed source (lower = closer to original contrast). */
+const HE_BLEND = 0.38;
 
 /** Composite onto white for alpha so luminance matches what prints on a panel. */
 function blendRgbOntoWhite(r, g, b, a) {
@@ -36,30 +44,6 @@ function blendRgbOntoWhite(r, g, b, a) {
     g * al + 255 * (1 - al),
     b * al + 255 * (1 - al),
   ];
-}
-
-/** Light, low-chroma areas (typical paper/backdrop); excluded from all PCB layers. */
-function isImageBackgroundPixel(r, g, b, a) {
-  if (a < 14) return true;
-  const [R, G, B] = blendRgbOntoWhite(r, g, b, a);
-  const lum = pcbLayerLuminance([R, G, B]);
-  const mx = Math.max(R, G, B);
-  const mn = Math.min(R, G, B);
-  const chroma = mx - mn;
-  if (lum >= 252) return true;
-  if (lum >= BG_LUM_THRESHOLD && chroma <= BG_CHROMA_MAX) return true;
-  return false;
-}
-
-function buildForegroundMask(imageData) {
-  const { data, width, height } = imageData;
-  const mask = new Uint8Array(width * height);
-  for (let i = 0, p = 0; i < mask.length; i++, p += 4) {
-    mask[i] = isImageBackgroundPixel(data[p], data[p + 1], data[p + 2], data[p + 3])
-      ? 0
-      : 1;
-  }
-  return mask;
 }
 
 /** Map a point in destination (inner image rect at export res) to source (processed bitmap cw×ch); same geometry as object-fit: cover. */
@@ -77,56 +61,58 @@ function mapCoverDestToSource(dx, dy, destW, destH, srcW, srcH) {
   return { sx, sy };
 }
 
-function sampleForegroundMaskBilinear(
-  mask,
-  srcW,
-  srcH,
-  sx,
-  sy,
-) {
-  if (sx < -0.5 || sy < -0.5 || sx >= srcW - 0.5 || sy >= srcH - 0.5) {
-    return 0;
-  }
-  const x0 = Math.floor(sx);
-  const y0 = Math.floor(sy);
-  const x1 = Math.min(x0 + 1, srcW - 1);
-  const y1 = Math.min(y0 + 1, srcH - 1);
-  const wx = sx - x0;
-  const wy = sy - y0;
-  const v00 = mask[y0 * srcW + x0];
-  const v10 = mask[y0 * srcW + x1];
-  const v01 = mask[y1 * srcW + x0];
-  const v11 = mask[y1 * srcW + x1];
-  const v =
-    v00 * (1 - wx) * (1 - wy) +
-    v10 * wx * (1 - wy) +
-    v01 * (1 - wx) * wy +
-    v11 * wx * wy;
-  return v >= 0.5 ? 1 : 0;
+function bilinearSampleRgbFromImageData(imageData, sx, sy) {
+  const { data, width, height } = imageData;
+  if (width <= 0 || height <= 0) return [255, 255, 255];
+  if (width === 1 && height === 1) return [data[0], data[1], data[2]];
+  const cx = Math.min(width - 1.001, Math.max(0, sx));
+  const cy = Math.min(height - 1.001, Math.max(0, sy));
+  const x0 = Math.floor(cx);
+  const y0 = Math.floor(cy);
+  const x1 = Math.min(x0 + 1, width - 1);
+  const y1 = Math.min(y0 + 1, height - 1);
+  const wx = cx - x0;
+  const wy = cy - y0;
+  const i00 = (y0 * width + x0) * 4;
+  const i10 = (y0 * width + x1) * 4;
+  const i01 = (y1 * width + x0) * 4;
+  const i11 = (y1 * width + x1) * 4;
+  const r =
+    data[i00] * (1 - wx) * (1 - wy) +
+    data[i10] * wx * (1 - wy) +
+    data[i01] * (1 - wx) * wy +
+    data[i11] * wx * wy;
+  const g =
+    data[i00 + 1] * (1 - wx) * (1 - wy) +
+    data[i10 + 1] * wx * (1 - wy) +
+    data[i01 + 1] * (1 - wx) * wy +
+    data[i11 + 1] * wx * wy;
+  const b =
+    data[i00 + 2] * (1 - wx) * (1 - wy) +
+    data[i10 + 2] * wx * (1 - wy) +
+    data[i01 + 2] * (1 - wx) * wy +
+    data[i11 + 2] * wx * wy;
+  return [r, g, b];
 }
 
-function foregroundAtInnerExportPixel(px, py, innerIx0, innerIy0, innerIx1, innerIy1) {
-  if (!pcbArtForegroundMask || pcbArtMaskW === 0) return 0;
+function processedRgbAtExportInnerPixel(
+  px,
+  py,
+  innerIx0,
+  innerIy0,
+  innerIx1,
+  innerIy1,
+) {
+  if (!pcbProcessedImageData) return null;
+  const pw = pcbProcessedImageData.width;
+  const ph = pcbProcessedImageData.height;
+  if (pw === 0 || ph === 0) return null;
   const dx = px - innerIx0;
   const dy = py - innerIy0;
   const destW = innerIx1 - innerIx0;
   const destH = innerIy1 - innerIy0;
-  if (dx < 0 || dy < 0 || dx >= destW || dy >= destH) return 0;
-  const { sx, sy } = mapCoverDestToSource(
-    dx,
-    dy,
-    destW,
-    destH,
-    pcbArtMaskW,
-    pcbArtMaskH,
-  );
-  return sampleForegroundMaskBilinear(
-    pcbArtForegroundMask,
-    pcbArtMaskW,
-    pcbArtMaskH,
-    sx,
-    sy,
-  );
+  const { sx, sy } = mapCoverDestToSource(dx, dy, destW, destH, pw, ph);
+  return bilinearSampleRgbFromImageData(pcbProcessedImageData, sx, sy);
 }
 
 function histogramEqualizeLuma(floatLuma, width, height) {
@@ -207,7 +193,7 @@ function boxBlurLuma(lum, alphaOut, width, height) {
  * Quantize to PCB_LAYER_RGB: smoothed luminance, mild histogram spread (no error diffusion —
  * dither was the main source of export speckle).
  */
-function applyPcbLayerQuantize(imageData, foregroundMask) {
+function applyPcbLayerQuantize(imageData) {
   const { data, width, height } = imageData;
   const size = width * height;
   let lum = new Float32Array(size);
@@ -215,11 +201,6 @@ function applyPcbLayerQuantize(imageData, foregroundMask) {
 
   for (let i = 0, p = 0; i < size; i++, p += 4) {
     const a = data[p + 3];
-    if (foregroundMask && !foregroundMask[i]) {
-      alphaOut[i] = 0;
-      lum[i] = 255;
-      continue;
-    }
     alphaOut[i] = a;
     if (a < 8) {
       lum[i] = 255;
@@ -229,7 +210,11 @@ function applyPcbLayerQuantize(imageData, foregroundMask) {
     lum[i] = pcbLayerLuminance([r, g, b]);
   }
 
-  lum = boxBlurLuma(lum, alphaOut, width, height);
+  const lumBlurred = boxBlurLuma(lum, alphaOut, width, height);
+  for (let i = 0; i < size; i++) {
+    lum[i] =
+      lum[i] * (1 - LUM_BLUR_MIX) + lumBlurred[i] * LUM_BLUR_MIX;
+  }
 
   // Mild S-curve on luminance before equalization: lifts shadows and highlights a bit.
   for (let i = 0; i < size; i++) {
@@ -239,7 +224,6 @@ function applyPcbLayerQuantize(imageData, foregroundMask) {
   }
 
   const eq = histogramEqualizeLuma(lum, width, height);
-  const HE_BLEND = 0.55;
   const buf = new Float32Array(size);
   for (let i = 0; i < size; i++) {
     buf[i] = eq[i] * HE_BLEND + lum[i] * (1 - HE_BLEND);
@@ -266,17 +250,34 @@ function applyPcbLayerQuantize(imageData, foregroundMask) {
   return imageData;
 }
 
-function renderImageToPcbCanvas(img, maxSide = 1600) {
+function downscaleCanvasHighQuality(sourceCanvas, maxSide) {
+  const w = sourceCanvas.width;
+  const h = sourceCanvas.height;
+  const scale = Math.min(1, maxSide / Math.max(w, h));
+  if (scale >= 1) return sourceCanvas;
+  const dw = Math.max(1, Math.round(w * scale));
+  const dh = Math.max(1, Math.round(h * scale));
+  const out = document.createElement("canvas");
+  out.width = dw;
+  out.height = dh;
+  const octx = out.getContext("2d");
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = "high";
+  octx.drawImage(sourceCanvas, 0, 0, dw, dh);
+  return out;
+}
+
+function renderImageToPcbCanvas(img) {
   const w = img.naturalWidth || img.width;
   const h = img.naturalHeight || img.height;
   if (!w || !h) return null;
 
   let cw = w;
   let ch = h;
-  const scale = maxSide / Math.max(w, h);
-  if (scale < 1) {
-    cw = Math.round(w * scale);
-    ch = Math.round(h * scale);
+  const cap = PCB_PROCESS_MAX_SIDE / Math.max(w, h);
+  if (cap < 1) {
+    cw = Math.round(w * cap);
+    ch = Math.round(h * cap);
   }
 
   const canvas = document.createElement("canvas");
@@ -288,12 +289,15 @@ function renderImageToPcbCanvas(img, maxSide = 1600) {
   ctx.drawImage(img, 0, 0, cw, ch);
 
   const imageData = ctx.getImageData(0, 0, cw, ch);
-  pcbArtForegroundMask = buildForegroundMask(imageData);
-  pcbArtMaskW = cw;
-  pcbArtMaskH = ch;
-  applyPcbLayerQuantize(imageData, pcbArtForegroundMask);
+  applyPcbLayerQuantize(imageData);
+  pcbProcessedImageData = new ImageData(
+    new Uint8ClampedArray(imageData.data),
+    cw,
+    ch,
+  );
   ctx.putImageData(imageData, 0, 0);
-  return canvas;
+
+  return downscaleCanvasHighQuality(canvas, PCB_PREVIEW_MAX_SIDE);
 }
 
 /** Classify a pixel from the 4-color PCB preview (after dither, colors are near PCB_LAYER_RGB). */
@@ -444,40 +448,36 @@ function buildPcbLayerMasks(fullCanvas, chromeCanvas, imageRect) {
   const mask = new ImageData(W, H);
   const maskCu = new ImageData(W, H);
 
-  const innerW = innerIx1 - innerIx0;
-  const innerH = innerIy1 - innerIy0;
-  const fgInner = new Uint8Array(Math.max(0, innerW * innerH));
-  for (let iy = 0; iy < innerH; iy++) {
-    for (let ix = 0; ix < innerW; ix++) {
-      fgInner[iy * innerW + ix] = foregroundAtInnerExportPixel(
-        innerIx0 + ix,
-        innerIy0 + iy,
-        innerIx0,
-        innerIy0,
-        innerIx1,
-        innerIy1,
-      );
-    }
-  }
-
   const bandMap = new Uint8Array(W * H);
   bandMap.fill(255);
   for (let py = innerIy0; py < innerIy1; py++) {
     for (let px = innerIx0; px < innerIx1; px++) {
       const i = py * W + px;
       const p = i * 4;
-      const fg = fgInner[(py - innerIy0) * innerW + (px - innerIx0)];
-      if (!fg) {
-        bandMap[i] = 255;
-        continue;
+      const procRgb = processedRgbAtExportInnerPixel(
+        px,
+        py,
+        innerIx0,
+        innerIy0,
+        innerIx1,
+        innerIy1,
+      );
+      let fr;
+      let fgCol;
+      let fb;
+      if (procRgb) {
+        [fr, fgCol, fb] = procRgb;
+      } else {
+        fr = fullData[p];
+        fgCol = fullData[p + 1];
+        fb = fullData[p + 2];
       }
-      const fr = fullData[p];
-      const fgCol = fullData[p + 1];
-      const fb = fullData[p + 2];
       bandMap[i] = nearestPcbBandFromRgb(fr, fgCol, fb);
     }
   }
-  medianFilterBands3x3(bandMap, W, H, innerIx0, innerIy0, innerIx1, innerIy1);
+  if (!pcbProcessedImageData) {
+    medianFilterBands3x3(bandMap, W, H, innerIx0, innerIy0, innerIx1, innerIy1);
+  }
 
   for (let py = 0; py < H; py++) {
     for (let px = 0; px < W; px++) {
@@ -502,19 +502,16 @@ function buildPcbLayerMasks(fullCanvas, chromeCanvas, imageRect) {
       const onImageBorderRing = insideFrame && !insideInner;
 
       const band = insideInner ? bandMap[py * W + px] & 3 : 0;
-      const artFg = insideInner
-        ? fgInner[(py - innerIy0) * innerW + (px - innerIx0)]
-        : 0;
 
       const chromeNonWhite = 255 - Math.min(cr, cg, cb) > 12;
       const fullNonWhite = 255 - Math.min(fr, fg, fb) > 12;
       const frameSilk = onImageBorderRing && (chromeNonWhite || fullNonWhite);
 
       const silkOn =
-        ink || frameSilk || (insideInner && artFg && band === 0);
-      const c = insideInner && artFg && band === 1 ? 255 : 0;
-      const m = insideInner && artFg && band === 2 ? 255 : 0;
-      const mc = insideInner && artFg && band === 3 ? 255 : 0;
+        ink || frameSilk || (insideInner && band === 0);
+      const c = insideInner && band === 1 ? 255 : 0;
+      const m = insideInner && band === 2 ? 255 : 0;
+      const mc = insideInner && band === 3 ? 255 : 0;
 
       silk.data[p] = silk.data[p + 1] = silk.data[p + 2] = silkOn ? 255 : 0;
       silk.data[p + 3] = 255;
@@ -658,18 +655,14 @@ function handleImageUpload(event) {
         if (pcbCanvas) {
           previewImage.src = pcbCanvas.toDataURL("image/png");
         } else {
-          pcbArtForegroundMask = null;
-          pcbArtMaskW = 0;
-          pcbArtMaskH = 0;
+          pcbProcessedImageData = null;
           previewImage.src = url;
         }
         previewImage.style.display = "block";
         imagePlaceholder.style.display = "none";
       };
       loader.onerror = function () {
-        pcbArtForegroundMask = null;
-        pcbArtMaskW = 0;
-        pcbArtMaskH = 0;
+        pcbProcessedImageData = null;
         previewImage.src = url;
         previewImage.style.display = "block";
         imagePlaceholder.style.display = "none";
@@ -680,9 +673,7 @@ function handleImageUpload(event) {
   } else {
     previewImage.style.display = "none";
     imagePlaceholder.style.display = "flex";
-    pcbArtForegroundMask = null;
-    pcbArtMaskW = 0;
-    pcbArtMaskH = 0;
+    pcbProcessedImageData = null;
   }
 }
 
