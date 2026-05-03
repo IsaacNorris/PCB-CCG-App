@@ -244,11 +244,18 @@ textarea {
   line-height: 1.2;
 }
 
-#download-btn {
+.preview-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+#download-btn,
+#download-layers-btn {
   display: block;
-  margin: 10px auto;
   padding: 10px 20px;
-  background-color: #3498db;
   color: white;
   border: none;
   border-radius: 5px;
@@ -257,8 +264,20 @@ textarea {
   transition: background-color 0.3s;
 }
 
+#download-btn {
+  background-color: #3498db;
+}
+
 #download-btn:hover {
   background-color: #2980b9;
+}
+
+#download-layers-btn {
+  background-color: #1abc9c;
+}
+
+#download-layers-btn:hover {
+  background-color: #16a085;
 }
 
 @media (max-width: 900px) {
