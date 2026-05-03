@@ -100,7 +100,7 @@ textarea {
   text-align: center;
 }
 .card-preview {
-  width: 63mm;
+  width: 64mm;
   height: 88mm;
   box-sizing: border-box;
   border: 2px solid #111;
@@ -153,7 +153,7 @@ textarea {
   max-width: 100%;
   max-height: 100%;
   object-fit: cover;
-  filter: grayscale(100%);
+  /* Artwork is posterized to 4 PCB layers in JS (silk → copper → mask → mask+copper). */
 }
 
 #image-placeholder {
