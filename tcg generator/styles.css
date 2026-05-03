@@ -42,6 +42,12 @@ h1 {
   flex: 1;
 }
 
+#card-description-small-2,
+#preview-description-small-2 {
+  direction: rtl;
+  text-align: right;
+}
+
 #abilities-input-list {
   display: flex;
   flex-direction: column;
@@ -103,7 +109,7 @@ textarea {
   background: #fff;
   margin: 0 auto;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: Consolas, "Courier New", monospace;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -125,17 +131,10 @@ textarea {
   font-size: 15px;
   font-weight: bold;
   color: #111;
-  max-width: 70%;
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.card-stats {
-  font-size: 14px;
-  color: #111;
-  font-weight: bold;
-  letter-spacing: 0.4px;
 }
 
 .card-image {
@@ -146,7 +145,7 @@ textarea {
   margin-bottom: 6px;
   border: 1px solid #222;
   border-radius: 4px;
-  background: #f5f5f5;
+  background: #fff;
   overflow: hidden;
 }
 
@@ -163,9 +162,9 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #777;
-  font-style: italic;
-  border: 1px dashed #999;
+  color: transparent;
+  background: #fff;
+  border: none;
   border-radius: 4px;
   font-size: 12px;
 }

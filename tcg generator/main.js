@@ -1,6 +1,5 @@
 // Get DOM elements
 const cardNameInput = document.getElementById("card-name");
-const cardHealthInput = document.getElementById("card-health");
 const abilitiesInputList = document.getElementById("abilities-input-list");
 const addAbilityBtn = document.getElementById("add-ability-btn");
 const cardDescriptionSmall1Input = document.getElementById("card-description-small-1");
@@ -8,7 +7,6 @@ const cardDescriptionSmall2Input = document.getElementById("card-description-sma
 const cardImageInput = document.getElementById("card-image");
 
 const previewName = document.getElementById("preview-name");
-const previewHealth = document.getElementById("preview-health");
 const previewAbilitiesList = document.getElementById("preview-abilities-list");
 const previewDescriptionSmall1 = document.getElementById("preview-description-small-1");
 const previewDescriptionSmall2 = document.getElementById("preview-description-small-2");
@@ -41,7 +39,6 @@ function addAbilityInput(labelValue = "", descriptionValue = "") {
 // Function to update preview
 function updatePreview() {
   previewName.textContent = cardNameInput.value || "Card Name";
-  previewHealth.textContent = (cardHealthInput.value || "0") + "HP";
 
   const abilityRows = Array.from(document.querySelectorAll(".ability-row"));
   const abilities = abilityRows
@@ -102,7 +99,6 @@ function handleImageUpload(event) {
 
 // Add event listeners
 cardNameInput.addEventListener("input", updatePreview);
-cardHealthInput.addEventListener("input", updatePreview);
 cardDescriptionSmall1Input.addEventListener("input", updatePreview);
 cardDescriptionSmall2Input.addEventListener("input", updatePreview);
 cardImageInput.addEventListener("change", handleImageUpload);
